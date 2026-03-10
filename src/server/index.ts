@@ -7,7 +7,13 @@ import {
 import { type PlayingState } from "../internal/gamelogic/gamestate.js";
 import { publishJSON } from "../internal/pubsub/json.js";
 import {
+  SimpleQueueType,
+  declareAndBind,
+} from "../internal/pubsub/queue.js";
+import {
   ExchangePerilDirect,
+  ExchangePerilTopic,
+  GameLogSlug,
   PauseKey,
 } from "../internal/routing/routing.js";
 
@@ -16,7 +22,6 @@ async function main() {
   const rabbitConnString = "amqp://guest:guest@localhost:5672/";
   const conn = await amqp.connect(rabbitConnString);
   console.log("Peril server connected to RabbitMQ");
-  const channel = await conn.createConfirmChannel();
 
   ["SIGINT", "SIGTERM"].forEach((signal) =>
     process.on(signal, async () => {
@@ -29,6 +34,16 @@ async function main() {
         process.exit(0);
       }
     })
+  );
+
+  const channel = await conn.createConfirmChannel();
+
+  await declareAndBind(
+    conn,
+    ExchangePerilTopic,
+    GameLogSlug,
+    `${GameLogSlug}.*`,
+    SimpleQueueType.Durable
   );
 
   printServerHelp();
