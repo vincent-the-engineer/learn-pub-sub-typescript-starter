@@ -1,5 +1,6 @@
 import amqp from "amqplib";
 
+import { handlerPause } from "./handlers.js";
 import {
   clientWelcome,
   commandStatus,
@@ -9,6 +10,7 @@ import {
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
+import { subscribeJSON } from "../internal/pubsub/json.js";
 import {
   SimpleQueueType,
   declareAndBind,
@@ -38,16 +40,16 @@ async function main() {
   );
 
   const username = await clientWelcome();
+  const gameState = new GameState(username);
 
-  const {channel, queue} = await declareAndBind(
+  await subscribeJSON<PlayingState>(
     conn,
     ExchangePerilDirect,
     `pause.${username}`,
     PauseKey,
-    SimpleQueueType.Transient
+    SimpleQueueType.Transient,
+    handlerPause(gameState)
   );
-
-  const gameState = new GameState(username);
 
   while (true) {
     const inputWords = await getInput();
