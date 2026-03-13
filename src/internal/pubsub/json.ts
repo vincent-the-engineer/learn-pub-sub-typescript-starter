@@ -1,5 +1,11 @@
 import { declareAndBind } from "./queue.js";
 
+export enum AckType {
+  Ack,
+  NackRequeue,
+  NackDiscard,
+}
+
 export async function publishJSON<T>(
   ch: ConfirmChannel,
   exchange: string,
@@ -20,7 +26,7 @@ export async function subscribeJSON<T>(
   queueName: string,
   key: string,
   queueType: SimpleQueueType,
-  handler: (data: T) => void,
+  handler: (data: T) => AckType,
 ): Promise<void> {
   const {channel, _} = await declareAndBind(
     conn,
@@ -37,8 +43,17 @@ export async function subscribeJSON<T>(
     }
     try {
       const content = await JSON.parse(message.content.toString());
-      handler(content);
-      channel.ack(message);
+      const awkType = handler(content);
+      if (awkType === AckType.Ack) {
+        channel.ack(message);
+        console.log("ack");
+      } else if (awkType === AckType.NackRequeue) {
+        channel.nack(message, false, true);
+        console.log("nack requeue");
+      } else if (awkType === AckType.NackDiscard) {
+        channel.nack(message, false, false);
+        console.log("nack discard");
+      }
     } catch (err) {
       console.error("Error parsing message:", err);
       return;
