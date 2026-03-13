@@ -1,22 +1,31 @@
 import amqp from "amqplib";
 
-import { handlerPause } from "./handlers.js";
+import {
+  handlerMove,
+  handlerPause,
+} from "./handlers.js";
 import {
   clientWelcome,
   commandStatus,
   getInput,
   printClientHelp,
 } from "../internal/gamelogic/gamelogic.js";
+import { type ArmyMove } from "../internal/gamelogic/gamedata.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
-import { subscribeJSON } from "../internal/pubsub/json.js";
+import {
+  publishJSON,
+  subscribeJSON,
+} from "../internal/pubsub/json.js";
 import {
   SimpleQueueType,
   declareAndBind,
 } from "../internal/pubsub/queue.js";
 import {
+  ArmyMovesPrefix,
   ExchangePerilDirect,
+  ExchangePerilTopic,
   PauseKey,
 } from "../internal/routing/routing.js";
 
@@ -41,6 +50,7 @@ async function main() {
 
   const username = await clientWelcome();
   const gameState = new GameState(username);
+  const channel = await conn.createConfirmChannel();
 
   await subscribeJSON<PlayingState>(
     conn,
@@ -49,6 +59,15 @@ async function main() {
     PauseKey,
     SimpleQueueType.Transient,
     handlerPause(gameState)
+  );
+
+  await subscribeJSON<ArmyMove>(
+    conn,
+    ExchangePerilTopic,
+    `${ArmyMovesPrefix}.${username}`,
+    `${ArmyMovesPrefix}.*`,
+    SimpleQueueType.Transient,
+    handlerMove(gameState)
   );
 
   while (true) {
@@ -66,7 +85,13 @@ async function main() {
       continue;
     } else if (command === "move") {
       try {
-        commandMove(gameState, inputWords);
+        const move = commandMove(gameState, inputWords);
+        await publishJSON<ArmyMove> (
+          channel,
+          ExchangePerilTopic,
+          `${ArmyMovesPrefix}.${username}`,
+          move
+        );
       } catch (err) {
         console.log(err.message);
       }
