@@ -3,6 +3,7 @@ import amqp from "amqplib";
 import {
   handlerMove,
   handlerPause,
+  handlerWar,
 } from "./handlers.js";
 import {
   clientWelcome,
@@ -27,6 +28,7 @@ import {
   ExchangePerilDirect,
   ExchangePerilTopic,
   PauseKey,
+  WarRecognitionsPrefix,
 } from "../internal/routing/routing.js";
 
 
@@ -67,7 +69,16 @@ async function main() {
     `${ArmyMovesPrefix}.${username}`,
     `${ArmyMovesPrefix}.*`,
     SimpleQueueType.Transient,
-    handlerMove(gameState)
+    handlerMove(gameState, channel)
+  );
+
+  await subscribeJSON<RecognitionOfWar>(
+    conn,
+    ExchangePerilTopic,
+    `${WarRecognitionsPrefix}`,
+    `${WarRecognitionsPrefix}.*`,
+    SimpleQueueType.Durable,
+    handlerWar(gameState)
   );
 
   while (true) {

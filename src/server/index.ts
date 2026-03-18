@@ -15,6 +15,7 @@ import {
   ExchangePerilTopic,
   GameLogSlug,
   PauseKey,
+  WarRecognitionsPrefix,
 } from "../internal/routing/routing.js";
 
 
@@ -43,6 +44,14 @@ async function main() {
     ExchangePerilTopic,
     GameLogSlug,
     `${GameLogSlug}.*`,
+    SimpleQueueType.Durable
+  );
+
+  await declareAndBind(
+    conn,
+    ExchangePerilTopic,
+    `${WarRecognitionsPrefix}`,
+    `${WarRecognitionsPrefix}.*`,
     SimpleQueueType.Durable
   );
 
