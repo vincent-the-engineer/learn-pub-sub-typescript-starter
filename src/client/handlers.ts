@@ -45,13 +45,18 @@ export function handlerMove(
           attacker: move.player,
           defender: gs.getPlayerSnap(),
         };
-        await publishJSON<RecognitionOfWar>(
-          ch,
-          ExchangePerilTopic,
-          `${WarRecognitionsPrefix}.${username}`,
-          rw
-        );
-        return AckType.NackRequeue;
+        try {
+          await publishJSON<RecognitionOfWar>(
+            ch,
+            ExchangePerilTopic,
+            `${WarRecognitionsPrefix}.${username}`,
+            rw
+          );
+          return AckType.Ack;
+        } catch (err) {
+          console.error("Error publishing war recgonition:", err);
+          return AckType.NackRequeue;
+        }
       } else if (moveOutcome === MoveOutcome.Safe) {
         return AckType.Ack;
       } else {
