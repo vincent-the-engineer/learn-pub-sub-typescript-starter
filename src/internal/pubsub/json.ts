@@ -15,9 +15,21 @@ export async function publishJSON<T>(
 {
   const content = JSON.stringify(value);
   const buffer = Buffer.from(content);
-  await ch.publish(
-    exchange, routingKey, buffer, {"contentType": "application/json"}
-  );
+  return new Promise((resolve, reject) => {
+    ch.publish(
+      exchange,
+      routingKey,
+      buffer,
+      { "contentType": "application/json" },
+      (err) => {
+        if (err !== null) {
+          reject(new Error("Message error"));
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
 }
 
 export async function subscribeJSON<T>(
