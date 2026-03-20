@@ -1,5 +1,6 @@
 import { type ConfirmChannel } from "amqplib";
 
+import { publishGameLog } from "./index.js";
 import {
   type ArmyMove,
 } from "../internal/gamelogic/gamedata.js";
@@ -76,7 +77,10 @@ export function handlerPause(gs: GameState): (ps: PlayingState) => AckType {
   };
 }
 
-export function handlerWar(gs: GameState): (ps: PlayingState) => Promise<AckType> {
+export function handlerWar(
+  gs: GameState,
+  ch: ConfirmChannel
+): (ps: PlayingState) => Promise<AckType> {
   return async function (rw: RecognitionOfWar): Promise<AckType> {
     try {
       const wr = handleWar(gs, rw);
@@ -87,9 +91,30 @@ export function handlerWar(gs: GameState): (ps: PlayingState) => Promise<AckType
       } else if (
         wr.result === WarOutcome.OpponentWon
         || wr.result === WarOutcome.YouWon
-        || wr.result === WarOutcome.Draw
       ) {
-        return AckType.Ack;
+        try {
+          await publishGameLog(
+            ch,
+            gs.getUsername(),
+            `${wr.winner} won a war against ${wr.loser}.`
+          );
+          return AckType.Ack;
+        } catch (err) {
+          console.error("Error publishing log:", err);
+          return AckType.NackRequeue;
+        }
+      } else if (wr.result === WarOutcome.Draw) {
+        try {
+          await publishGameLog(
+            ch,
+            gs.getUsername(),
+            `A war between ${wr.attacker} and ${wr.defender} resulted in a draw.`
+          );
+          return AckType.Ack;
+        } catch (err) {
+          console.error("Error publishing log:", err);
+          return AckType.NackRequeue;
+        }
       } else {
         console.error("Unknown war resolution");
         return AckType.NackDiscard;

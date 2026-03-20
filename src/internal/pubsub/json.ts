@@ -58,13 +58,10 @@ export async function subscribeJSON<T>(
       const awkType = await handler(content);
       if (awkType === AckType.Ack) {
         channel.ack(message);
-        console.log("ack");
       } else if (awkType === AckType.NackRequeue) {
         channel.nack(message, false, true);
-        console.log("nack requeue");
       } else if (awkType === AckType.NackDiscard) {
         channel.nack(message, false, false);
-        console.log("nack discard");
       }
     } catch (err) {
       console.error("Error parsing message:", err);

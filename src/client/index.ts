@@ -13,12 +13,14 @@ import {
 } from "../internal/gamelogic/gamelogic.js";
 import { type ArmyMove } from "../internal/gamelogic/gamedata.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
+import { type GameLog } from "../internal/gamelogic/logs.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import {
   publishJSON,
   subscribeJSON,
 } from "../internal/pubsub/json.js";
+import { publishMsgPack } from "../internal/pubsub/publish.js";
 import {
   SimpleQueueType,
   declareAndBind,
@@ -27,6 +29,7 @@ import {
   ArmyMovesPrefix,
   ExchangePerilDirect,
   ExchangePerilTopic,
+  GameLogSlug,
   PauseKey,
   WarRecognitionsPrefix,
 } from "../internal/routing/routing.js";
@@ -78,7 +81,7 @@ async function main() {
     `${WarRecognitionsPrefix}`,
     `${WarRecognitionsPrefix}.*`,
     SimpleQueueType.Durable,
-    handlerWar(gameState)
+    handlerWar(gameState, channel)
   );
 
   while (true) {
@@ -135,3 +138,22 @@ main().catch((err) => {
   console.error("Fatal error:", err);
   process.exit(1);
 });
+
+export async function publishGameLog(
+  ch: ConfirmChannel,
+  username: string,
+  message: string
+) {
+  const gameLog: GameLog = {
+    currentTime: new Date(),
+    message: message,
+    username: username,
+  };
+  await publishMsgPack<GameLog>(
+    ch,
+    ExchangePerilTopic,
+    `${GameLogSlug}.${username}`,
+    gameLog
+  );
+}
+
